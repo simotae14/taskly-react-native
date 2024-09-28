@@ -1,23 +1,16 @@
-import { StyleSheet, TextInput, View, ScrollView } from "react-native";
+import { StyleSheet, TextInput, FlatList, View, Text } from "react-native";
 import { theme } from "../theme";
 import { ShoppingListItem } from "../components/ShoppingListItem";
 import { useState } from "react";
 
 // define shopping list items type
-type ShoopingListItemType = {
+type ShoppingListItemType = {
   id: string;
   name: string;
 };
 
-// define the initialList
-const initialList: ShoopingListItemType[] = [
-  { id: "1", name: "Coffee" },
-  { id: "2", name: "Tea" },
-  { id: "3", name: "Milk" },
-];
-
 export default function App() {
-  const [shoppingList, setShoppingList] = useState(initialList);
+  const [shoppingList, setShoppingList] = useState<ShoppingListItemType[]>([]);
   const [value, setValue] = useState<string>();
 
   const handleSubmit = () => {
@@ -36,23 +29,27 @@ export default function App() {
   };
 
   return (
-    <ScrollView
+    <FlatList
+      ListEmptyComponent={() => (
+        <View style={styles.listEmptyContainer}>
+          <Text>Your shopping list is empty</Text>
+        </View>
+      )}
+      ListHeaderComponent={
+        <TextInput
+          style={styles.textInput}
+          value={value}
+          onChangeText={(text) => setValue(text)}
+          placeholder="Add an item to the list"
+          onSubmitEditing={handleSubmit}
+        />
+      }
       style={styles.container}
+      data={shoppingList}
       contentContainerStyle={styles.contentContainer}
       stickyHeaderIndices={[0]}
-    >
-      <TextInput
-        value={value}
-        style={styles.textInput}
-        onChangeText={setValue}
-        placeholder="E.g Coffee"
-        returnKeyType="done"
-        onSubmitEditing={handleSubmit}
-      />
-      {shoppingList.map((item) => (
-        <ShoppingListItem key={item.id} name={item.name} />
-      ))}
-    </ScrollView>
+      renderItem={({ item }) => <ShoppingListItem name={item.name} />}
+    />
   );
 }
 
@@ -74,5 +71,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 12,
     backgroundColor: theme.colorWhite,
+  },
+  listEmptyContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 18,
   },
 });
