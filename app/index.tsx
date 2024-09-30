@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colorWhite,
     flex: 1,
-    paddingTop: 12,
+    paddingVertical: 12,
   },
   contentContainer: {
     paddingBottom: 24,
