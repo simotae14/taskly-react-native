@@ -4,11 +4,19 @@ import { theme } from "../../theme";
 import { registerForPushNotificationsAsync } from "../../utils/registerForPushNotificationsAsync";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
-import { intervalToDuration, isBefore } from "date-fns";
+import { intervalToDuration, isBefore, set } from "date-fns";
 import { TimeSegment } from "../../components/TimerSegment";
+import { getFromStorage, saveToStorage } from "../../utils/storage";
 
-// 10 seconds from now
-const timestamp = Date.now() + 10 * 1000;
+// 10 seconds in ms
+const frequency = 10 * 1000;
+
+const countdownStorageKey = "taskly-countdown";
+
+type PersistedCountdownState = {
+  currentNotificationId?: string;
+  completedAtTimestamps: number[];
+};
 
 type CountdownStatus = {
   isOverdue: boolean;
@@ -16,25 +24,40 @@ type CountdownStatus = {
 };
 
 export default function CounterScreen() {
+  const [countdownState, setCountdownState] =
+    React.useState<PersistedCountdownState>();
   const [status, setStatus] = React.useState<CountdownStatus>({
     isOverdue: false,
     distance: {},
   });
 
-  console.log(status);
+  const lastCompletedTimestamp = countdownState?.completedAtTimestamps[0];
+
+  React.useEffect(() => {
+    const init = async () => {
+      const value = await getFromStorage(countdownStorageKey);
+      setCountdownState(value);
+    };
+    init();
+  }, []);
 
   React.useEffect(() => {
     const intervalId = setInterval(() => {
+      const timestamp = lastCompletedTimestamp
+        ? lastCompletedTimestamp + frequency
+        : Date.now();
       const isOverdue = isBefore(timestamp, Date.now());
 
       const distance = intervalToDuration(
-        isOverdue ? {
-          start: timestamp,
-          end: Date.now(),
-        } : {
-          start: Date.now(),
-          end: timestamp,
-        }
+        isOverdue
+          ? {
+              start: timestamp,
+              end: Date.now(),
+            }
+          : {
+              start: Date.now(),
+              end: timestamp,
+            },
       );
       setStatus({ isOverdue, distance });
     }, 1000);
@@ -42,15 +65,16 @@ export default function CounterScreen() {
     return () => {
       clearInterval(intervalId);
     };
-  }, []);
+  }, [lastCompletedTimestamp]);
   const scheduleNotification = async () => {
+    let pushNotificationId;
     const result = await registerForPushNotificationsAsync();
     if (result === "granted") {
-      await Notifications.scheduleNotificationAsync({
+      pushNotificationId = await Notifications.scheduleNotificationAsync({
         content: {
-          title: "I'm a notification from your app 📨",
+          title: "The thing is due!",
         },
-        trigger: { seconds: 5 },
+        trigger: { seconds: frequency / 1000 },
       });
     } else {
       if (Device.isDevice) {
@@ -59,17 +83,37 @@ export default function CounterScreen() {
           "Enable the notification permission for Expo Go in settings",
         );
       }
+
+      if (countdownState?.currentNotificationId) {
+        await Notifications.cancelScheduledNotificationAsync(
+          countdownState.currentNotificationId,
+        );
+      }
+
+      const newCountdownState: PersistedCountdownState = {
+        currentNotificationId: pushNotificationId,
+        completedAtTimestamps: countdownState
+          ? [Date.now(), ...countdownState.completedAtTimestamps]
+          : [Date.now()],
+      };
+
+      setCountdownState(newCountdownState);
+
+      await saveToStorage(countdownStorageKey, newCountdownState);
     }
   };
   return (
-    <View style={[styles.container, status.isOverdue ? styles.containerLate : undefined]}>
-      {
-        status.isOverdue ? (
-          <Text style={[styles.heading, styles.whiteText]}>Thing overdue by</Text>
-        ) : (
-          <Text style={styles.heading}>Thing due in...</Text>
-        )
-      }
+    <View
+      style={[
+        styles.container,
+        status.isOverdue ? styles.containerLate : undefined,
+      ]}
+    >
+      {status.isOverdue ? (
+        <Text style={[styles.heading, styles.whiteText]}>Thing overdue by</Text>
+      ) : (
+        <Text style={styles.heading}>Thing due in...</Text>
+      )}
       <View style={styles.row}>
         <TimeSegment
           unit="Days"
