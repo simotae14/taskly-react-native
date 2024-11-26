@@ -1,10 +1,17 @@
 import * as React from "react";
-import { Text, View, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import {
+  Text,
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { theme } from "../../theme";
 import { registerForPushNotificationsAsync } from "../../utils/registerForPushNotificationsAsync";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
-import { intervalToDuration, isBefore, set } from "date-fns";
+import { intervalToDuration, isBefore } from "date-fns";
 import { TimeSegment } from "../../components/TimerSegment";
 import { getFromStorage, saveToStorage } from "../../utils/storage";
 
@@ -24,6 +31,7 @@ type CountdownStatus = {
 };
 
 export default function CounterScreen() {
+  const [isLoading, setIsLoading] = React.useState(true);
   const [countdownState, setCountdownState] =
     React.useState<PersistedCountdownState>();
   const [status, setStatus] = React.useState<CountdownStatus>({
@@ -46,6 +54,9 @@ export default function CounterScreen() {
       const timestamp = lastCompletedTimestamp
         ? lastCompletedTimestamp + frequency
         : Date.now();
+      if (lastCompletedTimestamp) {
+        setIsLoading(false);
+      }
       const isOverdue = isBefore(timestamp, Date.now());
 
       const distance = intervalToDuration(
@@ -102,6 +113,15 @@ export default function CounterScreen() {
       await saveToStorage(countdownStorageKey, newCountdownState);
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.activityIndicatorContainer}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
   return (
     <View
       style={[
@@ -179,5 +199,11 @@ const styles = StyleSheet.create({
   },
   whiteText: {
     color: theme.colorWhite,
+  },
+  activityIndicatorContainer: {
+    backgroundColor: theme.colorWhite,
+    justifyContent: "center",
+    alignItems: "center",
+    flex: 1,
   },
 });
