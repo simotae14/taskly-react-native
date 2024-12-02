@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  useWindowDimensions,
 } from "react-native";
 import { theme } from "../../theme";
 import { registerForPushNotificationsAsync } from "../../utils/registerForPushNotificationsAsync";
@@ -14,9 +15,11 @@ import * as Notifications from "expo-notifications";
 import { intervalToDuration, isBefore } from "date-fns";
 import { TimeSegment } from "../../components/TimerSegment";
 import { getFromStorage, saveToStorage } from "../../utils/storage";
+import * as Haptics from "expo-haptics";
+import ConfettiCannon from "react-native-confetti-cannon";
 
-// 10 seconds in ms
-const frequency = 10 * 1000;
+// 2 weeks in ms
+const frequency = 2 * 7 * 24 * 60 * 60 * 1000;
 
 export const countdownStorageKey = "taskly-countdown";
 
@@ -31,6 +34,8 @@ type CountdownStatus = {
 };
 
 export default function CounterScreen() {
+  const { width } = useWindowDimensions();
+  const confettiRef = React.useRef<any>();
   const [isLoading, setIsLoading] = React.useState(true);
   const [countdownState, setCountdownState] =
     React.useState<PersistedCountdownState>();
@@ -78,12 +83,14 @@ export default function CounterScreen() {
     };
   }, [lastCompletedTimestamp]);
   const scheduleNotification = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    confettiRef?.current?.start();
     let pushNotificationId;
     const result = await registerForPushNotificationsAsync();
     if (result === "granted") {
       pushNotificationId = await Notifications.scheduleNotificationAsync({
         content: {
-          title: "The thing is due!",
+          title: "Time to wash the car! 🚗",
         },
         trigger: { seconds: frequency / 1000 },
       });
@@ -130,9 +137,11 @@ export default function CounterScreen() {
       ]}
     >
       {status.isOverdue ? (
-        <Text style={[styles.heading, styles.whiteText]}>Thing overdue by</Text>
+        <Text style={[styles.heading, styles.whiteText]}>
+          Car wash overdue by
+        </Text>
       ) : (
-        <Text style={styles.heading}>Thing due in...</Text>
+        <Text style={styles.heading}>Next car wash due in...</Text>
       )}
       <View style={styles.row}>
         <TimeSegment
@@ -161,8 +170,15 @@ export default function CounterScreen() {
         activeOpacity={0.8}
         onPress={scheduleNotification}
       >
-        <Text style={styles.buttonText}>I've done the thing!</Text>
+        <Text style={styles.buttonText}>I've washed the car!</Text>
       </TouchableOpacity>
+      <ConfettiCannon
+        count={50}
+        ref={confettiRef}
+        origin={{ x: width / 2, y: -20 }}
+        autoStart={false}
+        fadeOut={true}
+      />
     </View>
   );
 }
